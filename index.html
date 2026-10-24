@@ -229,44 +229,69 @@ const ZIP64='UEsDBBQAAAAIAOmxVF3hjoSHz6QWALCROQAOAAAAUnVieUNsaWVudC5leGXsvXt8U1X
     finally{btn.disabled=false}
   });
 })();
-// Ruby Helper: a small assistant that explains RubyClient in plain words
-(async function(){
-  const sample=null;
-  if(!sample)return;
+// Ruby Helper: a small built-in assistant that walks visitors through getting
+// everything RubyClient needs set up. Fully scripted and local: no API key,
+// no network call, nothing to leak, works even if the visitor is offline.
+(function(){
   const btn=document.getElementById('hbtn'),panel=document.getElementById('hpanel'),box=document.getElementById('hmsgs'),form=document.getElementById('hform'),inp=document.getElementById('hin'),send=document.getElementById('hsend');
   btn.hidden=false;
-  const FACTS=`You are Ruby Helper, the friendly assistant on the RubyClient website. Explain things as simply as possible, in short plain sentences, to someone who is not technical. Answer only about RubyClient using these facts; if something is not covered, say you are not sure and suggest asking the founder, Peter Medvediev. Never invent features, prices or dates.
-FACTS:
-- RubyClient is a desktop program for Windows. It is one file (.exe) with no installer. It needs the free .NET 9 Desktop Runtime and Microsoft WebView2 (most PCs have them; Windows offers them if missing).
-- It is a hub of apps: Ruby Browser, Game Demos, Accounts, Weather, Clip Studio (a clip maker with instant replay), web apps like Discord and Steam, Clipboard history, Notes, Tasks, Calculator, Converter, Focus Timer, Password maker, Secure Vault (notes locked with a password), QR Studio, Toolbox, World Clock, PC Specs, Live Monitor, Disk Analyzer, Bulk Renamer, Network Tools, Autoclicker, Switchboard.
-- Ruby Browser: tabs sit on a ruby-styled rail at the side, searchable history, private windows that save nothing, a tracker blocker, add-ons, split view, profiles, a news start page, themes and wallpapers.
-- Ruby VPN: one switch and a country list, nothing to install or log into. It runs through the Tor network, so it is slower than a normal VPN and covers the Ruby browser only. It needs the Tor Browser installed once on the PC.
-- Tor engine tabs give extra privacy and also need the Tor Browser.
-- Ruby updates itself: it checks when it starts and installs signed updates by itself.
-- The download is a zip; open it and run RubyClient.exe. Windows may warn the first time because the file is new: choose More info, then Run anyway.
-- Linux is under development and not available yet.
-- Founder: Peter Medvediev.`;
-  const hist=[];
+
+  // Each topic: the words that trigger it, and the plain-language answer.
+  // Matching picks whichever topic shares the most trigger words with what
+  // was typed, so visitors don't have to phrase things exactly right.
+  const TOPICS=[
+    {kw:['install','setup','set up','get started','how do i install','download','requirement','need','needs','dependen','runtime','prerequisite'],
+     a:"Here's everything RubyClient needs, in order:\n1. Click Download above and save the zip.\n2. Open the zip and run RubyClient.exe.\n3. If Windows shows \"Windows protected your PC\", click More info, then Run anyway. This shows up because the file is new, not because anything is wrong.\n4. RubyClient needs the free .NET 9 Desktop Runtime and Microsoft WebView2. Most Windows PCs already have both; if not, Windows will offer to install them for you automatically.\n5. For Ruby VPN or Tor tabs, install Tor Browser once from torproject.org and open it so it finishes its first-time setup.\nThat's it — ask me about any of these steps if one gives you trouble."},
+    {kw:['.net','dotnet','net 9','net runtime'],
+     a:"RubyClient needs the free .NET 9 Desktop Runtime to run. Most Windows 10/11 PCs already have a compatible version. If you see an error mentioning .NET when you open RubyClient.exe, Windows will show a link to install it, or you can get it from Microsoft's official .NET download page — just search \"download .NET 9 desktop runtime\"."},
+    {kw:['webview','web view','webview2'],
+     a:"WebView2 is Microsoft's component for showing web pages inside apps, and RubyClient uses it. It's pre-installed on almost all current Windows PCs. If RubyClient complains it's missing, search \"Microsoft WebView2 Runtime download\" and install the Evergreen Bootstrapper from Microsoft's site."},
+    {kw:['protected your pc','smartscreen','windows protected','defender','virus','antivirus','unsafe','suspicious','malware','flagged'],
+     a:"That warning (\"Windows protected your PC\") is Microsoft Defender SmartScreen being cautious about a new, unsigned file — it shows up for lots of safe small apps, not just RubyClient. Click \"More info\", then \"Run anyway\" to continue. If your antivirus quarantines the file instead, add an exception for RubyClient.exe, or re-download it and check the file wasn't corrupted."},
+    {kw:['vpn','ruby vpn','safe','country','slow'],
+     a:"Ruby VPN is one switch and a country list, nothing to install or log into — but it runs over the Tor network, so it's slower than a normal VPN and only covers the Ruby Browser, not your whole PC. It needs Tor Browser installed once (see the install steps). If it says \"Tor failed\", open Tor Browser separately first and make sure it fully connects."},
+    {kw:['tor','tor browser','tor failed','tor exited','connect to tor','tunnel','err_tunnel'],
+     a:"Ruby VPN and the Tor engine tabs both route through Tor Browser running on your PC. If you see \"Tor failed\" or \"ERR_TUNNEL_CONNECTION_FAILED\":\n1. Install Tor Browser from torproject.org if you haven't.\n2. Open Tor Browser on its own and wait for \"Connected to Tor\".\n3. If it says \"Tor exited during startup\", close any leftover tor.exe in Task Manager, check your antivirus isn't blocking it, and try again — a clean reinstall of Tor Browser fixes most cases.\n4. Then go back to RubyClient and reload the page."},
+    {kw:['browser','ruby browser','tab','private','history','tracker'],
+     a:"Ruby Browser is the built-in browser: tabs on a ruby-styled side rail, searchable history, private windows that save nothing, and a tracker blocker. It needs no separate install — it's part of RubyClient."},
+    {kw:['update','auto update','version'],
+     a:"RubyClient checks for updates itself when it starts and installs them automatically. Every update is signed, so a damaged or fake update file is refused. You don't need to do anything."},
+    {kw:['linux'],
+     a:"A Linux build is under development and not available yet — for now RubyClient is Windows-only."},
+    {kw:['app','apps','what is','what does','features','notes','tasks','calculator','discord','steam','weather'],
+     a:"RubyClient is a hub of apps in one window: Ruby Browser, Game Demos, Accounts, Weather, Clip Studio, web apps like Discord and Steam, Clipboard history, Notes, Tasks, Calculator, Converter, Focus Timer, Password Maker, Secure Vault, QR Studio, Toolbox, World Clock, PC Specs and more. They all come with the one download — nothing extra to install."},
+    {kw:['founder','who made','peter','medvediev','author','developer'],
+     a:"RubyClient was founded by Peter Medvediev, who leads its design and development."},
+    {kw:['price','cost','free','pay'],
+     a:"RubyClient is free, one file, no installer."},
+  ];
+  const FALLBACK="I'm not sure about that one. I can walk you through installing RubyClient and its requirements, the Windows security warning, Ruby VPN / Tor, or what the built-in apps do — ask about any of those, or reach out to the founder, Peter Medvediev, for anything else.";
+
+  function bestAnswer(q){
+    const words=q.toLowerCase().match(/[a-z0-9.]+/g)||[];
+    let best=null,bestScore=0;
+    for(const topic of TOPICS){
+      let score=0;
+      for(const kw of topic.kw){
+        if(kw.includes(' ')?q.toLowerCase().includes(kw):words.includes(kw)) score+=kw.split(' ').length;
+      }
+      if(score>bestScore){bestScore=score;best=topic}
+    }
+    return best?best.a:FALLBACK;
+  }
+
   function add(role,text){const d=document.createElement('div');d.className='hm '+(role==='u'?'u':'a');d.textContent=text;box.appendChild(d);box.scrollTop=box.scrollHeight;return d}
   function intro(){
-    add('a','Hi! I can explain what RubyClient is, how to install it, or what any app inside does. What would you like to know?');
+    add('a','Hi! I\'m Ruby Helper, built into this page. I can walk you through installing RubyClient and everything it needs. What would you like to know?');
     const c=document.createElement('div');c.className='hchips';
-    ['What is RubyClient?','How do I install it?','Is the VPN safe?','Why does Windows show a warning?'].forEach(q=>{const b=document.createElement('button');b.type='button';b.textContent=q;b.onclick=()=>ask(q);c.appendChild(b)});
+    ['What do I need to install it?','Why does Windows show a warning?','Ruby VPN / Tor is not connecting','What apps are included?'].forEach(q=>{const b=document.createElement('button');b.type='button';b.textContent=q;b.onclick=()=>ask(q);c.appendChild(b)});
     box.appendChild(c);
   }
-  async function ask(q){
+  function ask(q){
     q=q.trim();if(!q)return;
     const chips=box.querySelector('.hchips');if(chips)chips.remove();
-    add('u',q);hist.push({role:'user',content:q});inp.value='';send.disabled=true;
-    const out=add('a','...');
-    try{
-      const convo=hist.slice(-8).map(m=>(m.role==='user'?'Visitor: ':'Helper: ')+m.content).join('\n');
-      const r=await sample(FACTS+'\n\nConversation:\n'+convo+'\nHelper:',{modelTier:'quick',cache:false,onText:t=>{out.textContent=t.text;box.scrollTop=box.scrollHeight}});
-      const text=(r.text||'').trim()||'Sorry, I could not find an answer. Please try asking in other words.';
-      out.textContent=text;hist.push({role:'assistant',content:text});
-    }catch(e){
-      out.textContent=e&&e.code==='rate_limited'?'I am getting a lot of questions. Please wait a moment and ask again.':e&&e.code==='not_granted'?'The helper needs your permission to answer. Press Ask Ruby Helper again and allow it.':'Sorry, the helper is not available right now.';
-    }finally{send.disabled=false;inp.focus()}
+    add('u',q);inp.value='';send.disabled=true;
+    setTimeout(()=>{add('a',bestAnswer(q));send.disabled=false;inp.focus()},250);
   }
   let started=false;
   btn.onclick=()=>{panel.hidden=!panel.hidden;if(!panel.hidden){if(!started){started=true;intro()}inp.focus()}};
