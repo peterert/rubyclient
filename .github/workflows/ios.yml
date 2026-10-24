@@ -1,0 +1,33 @@
+name: Build iOS app
+
+on:
+  workflow_dispatch:
+  push:
+    paths: ['ios/**', '.github/workflows/ios.yml']
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+      - name: Build (unsigned)
+        working-directory: ios
+        run: |
+          xcodebuild -project RubyClient.xcodeproj -scheme RubyClient \
+            -configuration Release -sdk iphoneos -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+      - name: Package .ipa
+        working-directory: ios
+        run: |
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/RubyClient.app Payload/
+          zip -qr RubyClient.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RubyClient-ipa
+          path: ios/RubyClient.ipa
